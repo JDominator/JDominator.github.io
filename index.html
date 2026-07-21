@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Simple Communicator</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f2;
+      --panel: #ffffff;
+      --ink: #17212b;
+      --muted: #5b6673;
+      --line: #d7ddd6;
+      --accent: #0f766e;
+      --accent-dark: #0b5c56;
+      --warn: #b42318;
+      --blue: #285eaf;
+      --shadow: 0 8px 24px rgba(23, 33, 43, 0.08);
+      --control-height: 86px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    button {
+      border: 0;
+      color: inherit;
+      font: inherit;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+
+    .app {
+      height: 100dvh;
+      display: grid;
+      grid-template-rows: minmax(190px, 34dvh) minmax(0, 1fr) auto;
+      padding: max(10px, env(safe-area-inset-top)) 10px max(8px, env(safe-area-inset-bottom));
+      gap: 8px;
+    }
+
+    .app.output-mode {
+      grid-template-rows: minmax(0, 1fr) 0 auto;
+    }
+
+    .app.category-mode {
+      grid-template-rows: 0 minmax(0, 1fr) auto;
+    }
+
+    .output-panel,
+    .browser-panel,
+    .controls {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+
+    .output-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .output-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px 8px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .speak-button {
+      min-height: 42px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: white;
+      font-weight: 800;
+    }
+
+    .output-text {
+      flex: 1;
+      overflow: auto;
+      padding: 14px;
+      font-size: clamp(26px, 8vw, 42px);
+      line-height: 1.18;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .placeholder {
+      color: #7a8591;
+    }
+
+    .browser-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .browser-header {
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) 48px;
+      align-items: center;
+      gap: 6px;
+      padding: 8px;
+      border-bottom: 1px solid var(--line);
+      min-height: 60px;
+    }
+
+    .icon-button {
+      width: 48px;
+      height: 44px;
+      border-radius: 8px;
+      background: #edf3f2;
+      color: var(--accent-dark);
+      font-size: 25px;
+      font-weight: 900;
+    }
+
+    .icon-button:disabled {
+      opacity: 0.35;
+    }
+
+    .path {
+      min-width: 0;
+      text-align: center;
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .crumb {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .grid {
+      flex: 1;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-auto-rows: minmax(76px, auto);
+      align-content: start;
+      gap: 8px;
+      padding: 10px 10px 18px;
+    }
+
+    .tile {
+      min-height: 76px;
+      border-radius: 8px;
+      border: 2px solid #d8e2de;
+      background: #fbfcfb;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 10px;
+      text-align: left;
+      box-shadow: 0 2px 0 rgba(23, 33, 43, 0.04);
+    }
+
+    .tile:active {
+      transform: translateY(1px);
+      background: #eef7f5;
+      border-color: var(--accent);
+    }
+
+    .tile .emoji {
+      width: 38px;
+      flex: 0 0 38px;
+      text-align: center;
+      font-size: 30px;
+      line-height: 1;
+    }
+
+    .tile .label {
+      min-width: 0;
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1.08;
+      overflow-wrap: anywhere;
+    }
+
+    .tile .hint {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .controls {
+      min-height: var(--control-height);
+      border-radius: 8px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 2.4fr;
+      gap: 8px;
+      padding: 8px;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      z-index: 3;
+    }
+
+    .control-button,
+    .mode-button {
+      min-height: 58px;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: 900;
+      background: #edf1f4;
+    }
+
+    .return-button {
+      background: #e7f0ff;
+      color: var(--blue);
+    }
+
+    .clear-button {
+      background: #fff0eb;
+      color: var(--warn);
+    }
+
+    .mode-group {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 5px;
+      padding: 4px;
+      border-radius: 8px;
+      background: #eef0eb;
+    }
+
+    .mode-button {
+      min-height: 50px;
+      padding: 5px 4px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .mode-button.active {
+      background: var(--ink);
+      color: white;
+    }
+
+    .app.output-mode .browser-panel,
+    .app.category-mode .output-panel {
+      border: 0;
+      min-height: 0;
+      overflow: hidden;
+      visibility: hidden;
+    }
+
+    @media (min-width: 520px) {
+      .app {
+        max-width: 520px;
+        margin: 0 auto;
+      }
+    }
+
+    @media (max-width: 370px) {
+      .grid {
+        grid-auto-rows: minmax(70px, auto);
+        gap: 7px;
+        padding-inline: 8px;
+      }
+
+      .tile {
+        min-height: 70px;
+        padding: 10px 8px;
+      }
+
+      .tile .emoji {
+        width: 30px;
+        flex-basis: 30px;
+        font-size: 25px;
+      }
+
+      .tile .label {
+        font-size: 18px;
+      }
+
+      .controls {
+        grid-template-columns: 0.8fr 0.8fr 2.4fr;
+        gap: 6px;
+      }
+
+      .control-button {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main id="app" class="app" aria-label="Simple communicator">
+    <section class="output-panel" aria-label="Message output">
+      <div class="output-header">
+        <span>Message</span>
+        <button id="speakButton" class="speak-button" type="button">Speak</button>
+      </div>
+      <div id="outputText" class="output-text placeholder" aria-live="polite">Tap words below.</div>
+    </section>
+
+    <section class="browser-panel" aria-label="Category and topic selector">
+      <div class="browser-header">
+        <button id="backButton" class="icon-button" type="button" aria-label="Back">‹</button>
+        <div class="path">
+          <span id="currentTitle">Categories</span>
+          <span id="currentCrumb" class="crumb">Choose a group</span>
+        </div>
+        <button id="homeButton" class="icon-button" type="button" aria-label="Home">⌂</button>
+      </div>
+      <div id="grid" class="grid" aria-label="Choices"></div>
+    </section>
+
+    <nav class="controls" aria-label="Message controls">
+      <button id="returnButton" class="control-button return-button" type="button">Return</button>
+      <button id="clearButton" class="control-button clear-button" type="button">Clear</button>
+      <div class="mode-group" role="group" aria-label="Panel size">
+        <button class="mode-button active" type="button" data-mode="normal">Normal</button>
+        <button class="mode-button" type="button" data-mode="output">Output</button>
+        <button class="mode-button" type="button" data-mode="category">Category</button>
+      </div>
+    </nav>
+  </main>
+
+  <script>
+    const vocabulary = [
+      {
+        label: "Question", emoji: "❓", children: [
+          phrase("Who", "👤"), phrase("What", "❔"), phrase("Where", "📍"),
+          phrase("When", "🕒"), phrase("Why", "🤔"), phrase("Which", "☝️"),
+          phrase("How", "🛠️"), phrase("Can you repeat?", "🔁")
+        ]
+      },
+      {
+        label: "People", emoji: "👥", children: [
+          phrase("Doctor", "🩺"), phrase("Nurse", "🏥"), phrase("Therapist", "💪"),
+          phrase("Significant other", "❤️"), phrase("Friend", "🤝"), phrase("Caregiver", "🫶"),
+          {
+            label: "Family", emoji: "🏠", children: [
+              phrase("Mom", "👩"), phrase("Dad", "👨"), phrase("Brother", "👦"),
+              phrase("Sister", "👧"), phrase("Son", "🧒"), phrase("Daughter", "👧"),
+              phrase("Grandson", "👶"), phrase("Granddaughter", "👶"), phrase("Grandparent", "👵")
+            ]
+          }
+        ]
+      },
+      {
+        label: "Needs", emoji: "🙋", children: [
+          phrase("Help", "🆘"), phrase("Please", "🙏"), phrase("Thank you", "👍"),
+          phrase("Yes", "✅"), phrase("No", "❌"), phrase("Stop", "✋"),
+          phrase("More", "➕"), phrase("Less", "➖"), phrase("Again", "🔁"),
+          phrase("I do not know", "🤷")
+        ]
+      },
+      {
+        label: "Medical", emoji: "🏥", children: [
+          phrase("Medicine", "💊"), phrase("Appointment", "📅"), phrase("Test result", "🧪"),
+          phrase("Blood pressure", "🫀"), phrase("Breathing", "🫁"), phrase("Therapy", "💪"),
+          phrase("Emergency", "🚨"), phrase("Allergy", "⚠️"), phrase("I feel worse", "⬇️"),
+          phrase("I feel better", "⬆️")
+        ]
+      },
+      {
+        label: "Body", emoji: "🧍", children: [
+          phrase("Head", "🙂"), phrase("Eye", "👁️"), phrase("Ear", "👂"),
+          phrase("Mouth", "👄"), phrase("Throat", "🗣️"), phrase("Chest", "🫁"),
+          phrase("Stomach", "🤢"), phrase("Back", "↩️"), phrase("Arm", "💪"),
+          phrase("Hand", "✋"), phrase("Leg", "🦵"), phrase("Foot", "🦶")
+        ]
+      },
+      {
+        label: "Physical", emoji: "🤕", children: [
+          phrase("Pain", "🔥"), phrase("Itching", "🟣"), phrase("Tingling", "✨"),
+          phrase("Upset stomach", "🤢"), phrase("Dizzy", "😵"), phrase("Tired", "😴"),
+          phrase("Headache", "🤯"), phrase("Nausea", "🤮"), phrase("Cold", "🥶"),
+          phrase("Hot", "🥵"), phrase("Numb", "▫️"), phrase("Weak", "⬇️")
+        ]
+      },
+      {
+        label: "Pain Level", emoji: "📊", children: [
+          phrase("No pain", "0️⃣"), phrase("Mild pain", "2️⃣"), phrase("Medium pain", "5️⃣"),
+          phrase("Bad pain", "7️⃣"), phrase("Worst pain", "🔟"), phrase("Sharp", "📌"),
+          phrase("Dull", "◽"), phrase("Burning", "🔥"), phrase("Pressure", "⬇️")
+        ]
+      },
+      {
+        label: "Emotion", emoji: "😊", children: [
+          phrase("Happy", "😊"), phrase("Sad", "😢"), phrase("Scared", "😨"),
+          phrase("Stressed", "😣"), phrase("Nervous", "😬"), phrase("Angry", "😠"),
+          phrase("Confused", "😕"), phrase("Lonely", "🫥"), phrase("Calm", "🙂"),
+          phrase("Frustrated", "😤")
+        ]
+      },
+      {
+        label: "Comfort", emoji: "🛏️", children: [
+          phrase("Water", "💧"), phrase("Food", "🍽️"), phrase("Bathroom", "🚽"),
+          phrase("Blanket", "🛌"), phrase("Pillow", "☁️"), phrase("Lights off", "🌙"),
+          phrase("Lights on", "💡"), phrase("Too loud", "🔊"), phrase("Quiet", "🤫"),
+          phrase("Move me", "↔️"), phrase("Sit up", "⬆️"), phrase("Lie down", "⬇️")
+        ]
+      },
+      {
+        label: "Social", emoji: "💬", children: [
+          phrase("I love you", "❤️"), phrase("I miss you", "💙"), phrase("Stay with me", "🤝"),
+          phrase("Call someone", "📞"), phrase("Text someone", "📱"), phrase("Tell me news", "📰"),
+          phrase("Visit later", "🗓️"), phrase("I need rest", "😴"), phrase("That is funny", "😄")
+        ]
+      },
+      {
+        label: "Time", emoji: "🕒", children: [
+          phrase("Now", "⚡"), phrase("Soon", "⏳"), phrase("Later", "➡️"),
+          phrase("Today", "📍"), phrase("Tomorrow", "🌅"), phrase("Yesterday", "↩️"),
+          phrase("Morning", "🌄"), phrase("Afternoon", "☀️"), phrase("Night", "🌙")
+        ]
+      },
+      {
+        label: "Places", emoji: "📍", children: [
+          phrase("Home", "🏠"), phrase("Hospital", "🏥"), phrase("Room", "🚪"),
+          phrase("Bathroom", "🚽"), phrase("Outside", "🌳"), phrase("Car", "🚗"),
+          phrase("Pharmacy", "💊"), phrase("Clinic", "🩺")
+        ]
+      },
+      {
+        label: "Numbers", emoji: "🔢", children: "0123456789".split("").map((n) => phrase(n, numberEmoji(n)))
+      },
+      {
+        label: "Letters", emoji: "🔤", children: "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter) => phrase(letter, "🔠"))
+      },
+      {
+        label: "Colors", emoji: "🎨", children: [
+          phrase("Red", "🔴"), phrase("Orange", "🟠"), phrase("Yellow", "🟡"),
+          phrase("Green", "🟢"), phrase("Blue", "🔵"), phrase("Purple", "🟣"),
+          phrase("Black", "⚫"), phrase("White", "⚪"), phrase("Brown", "🟤"),
+          phrase("Gray", "◻️")
+        ]
+      },
+      {
+        label: "Common Words", emoji: "🧩", children: [
+          phrase("I", "👁️"), phrase("You", "👉"), phrase("Want", "🙋"),
+          phrase("Need", "🆘"), phrase("Feel", "💭"), phrase("Have", "🤲"),
+          phrase("Go", "➡️"), phrase("Come", "⬅️"), phrase("Like", "👍"),
+          phrase("Not", "🚫"), phrase("And", "➕"), phrase("Because", "➡️")
+        ]
+      }
+    ];
+
+    const app = document.getElementById("app");
+    const grid = document.getElementById("grid");
+    const outputText = document.getElementById("outputText");
+    const currentTitle = document.getElementById("currentTitle");
+    const currentCrumb = document.getElementById("currentCrumb");
+    const backButton = document.getElementById("backButton");
+    const homeButton = document.getElementById("homeButton");
+    const clearButton = document.getElementById("clearButton");
+    const returnButton = document.getElementById("returnButton");
+    const speakButton = document.getElementById("speakButton");
+    const modeButtons = Array.from(document.querySelectorAll(".mode-button"));
+
+    let path = [];
+    let message = "";
+
+    function phrase(label, emoji) {
+      return { label, emoji, phrase: label };
+    }
+
+    function numberEmoji(value) {
+      return ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"][Number(value)];
+    }
+
+    function currentItems() {
+      return path.reduce((items, index) => items[index].children, vocabulary);
+    }
+
+    function render() {
+      const items = currentItems();
+      grid.innerHTML = "";
+      items.forEach((item, index) => {
+        const tile = document.createElement("button");
+        tile.className = "tile";
+        tile.type = "button";
+        tile.innerHTML = `
+          <span class="emoji" aria-hidden="true">${item.emoji || "▪️"}</span>
+          <span class="label">
+            ${escapeHtml(item.label)}
+            ${item.children ? `<span class="hint">${item.children.length} choices</span>` : ""}
+          </span>
+        `;
+        tile.addEventListener("click", () => selectItem(item, index));
+        grid.appendChild(tile);
+      });
+
+      const names = breadcrumbNames();
+      currentTitle.textContent = names.at(-1) || "Categories";
+      currentCrumb.textContent = names.length ? names.join(" / ") : "Choose a group";
+      backButton.disabled = path.length === 0;
+      updateOutput();
+    }
+
+    function selectItem(item, index) {
+      if (item.children) {
+        path.push(index);
+        render();
+        grid.scrollTop = 0;
+        return;
+      }
+      appendPhrase(item.phrase || item.label);
+    }
+
+    function appendPhrase(text) {
+      if (!message || message.endsWith("\n")) {
+        message += text;
+      } else {
+        message += " " + text;
+      }
+      updateOutput();
+    }
+
+    function updateOutput() {
+      outputText.textContent = message || "Tap words below.";
+      outputText.classList.toggle("placeholder", !message);
+      outputText.scrollTop = outputText.scrollHeight;
+    }
+
+    function breadcrumbNames() {
+      let items = vocabulary;
+      return path.map((index) => {
+        const item = items[index];
+        items = item.children || [];
+        return item.label;
+      });
+    }
+
+    function escapeHtml(text) {
+      return String(text).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    backButton.addEventListener("click", () => {
+      path.pop();
+      render();
+    });
+
+    homeButton.addEventListener("click", () => {
+      path = [];
+      render();
+    });
+
+    returnButton.addEventListener("click", () => {
+      if (message && !message.endsWith("\n")) {
+        message += "\n";
+      }
+      updateOutput();
+    });
+
+    clearButton.addEventListener("click", () => {
+      message = "";
+      updateOutput();
+    });
+
+    speakButton.addEventListener("click", () => {
+      const text = message.trim();
+      if (!text || !("speechSynthesis" in window)) return;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+    });
+
+    modeButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const mode = button.dataset.mode;
+        app.classList.toggle("output-mode", mode === "output");
+        app.classList.toggle("category-mode", mode === "category");
+        modeButtons.forEach((candidate) => {
+          candidate.classList.toggle("active", candidate === button);
+        });
+      });
+    });
+
+    render();
+  </script>
+</body>
+</html>
