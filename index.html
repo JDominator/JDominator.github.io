@@ -59,6 +59,12 @@
       grid-template-rows: 0 minmax(0, 1fr) auto;
     }
 
+    .app.fixed-text,
+    .app.fixed-text * {
+      -webkit-text-size-adjust: none;
+      text-size-adjust: none;
+    }
+
     .output-panel,
     .browser-panel,
     .controls {
@@ -87,9 +93,14 @@
       font-weight: 700;
     }
 
+    .output-title {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
     .speak-button {
       min-height: 42px;
-      padding: 8px 12px;
+      padding: 8px 10px;
       border-radius: 8px;
       background: var(--accent);
       color: white;
@@ -99,15 +110,16 @@
     .speech-controls {
       display: flex;
       align-items: center;
-      gap: 8px;
+      flex: 0 0 auto;
+      gap: 6px;
     }
 
-    .instant-toggle {
+    .top-toggle {
       min-height: 42px;
       display: inline-flex;
       align-items: center;
       gap: 7px;
-      padding: 7px 10px;
+      padding: 7px 8px;
       border-radius: 8px;
       background: #eef0eb;
       color: var(--ink);
@@ -116,7 +128,7 @@
       user-select: none;
     }
 
-    .instant-toggle input {
+    .top-toggle input {
       position: absolute;
       opacity: 0;
       pointer-events: none;
@@ -135,12 +147,12 @@
       line-height: 1;
     }
 
-    .instant-toggle input:checked + .toggle-mark {
+    .top-toggle input:checked + .toggle-mark {
       border-color: var(--accent);
       background: var(--accent);
     }
 
-    .instant-toggle input:checked + .toggle-mark::after {
+    .top-toggle input:checked + .toggle-mark::after {
       content: "✓";
     }
 
@@ -363,6 +375,15 @@
       .control-button {
         font-size: 16px;
       }
+
+      .output-title {
+        display: none;
+      }
+
+      .speech-controls {
+        width: 100%;
+        justify-content: flex-end;
+      }
     }
   </style>
 </head>
@@ -370,9 +391,14 @@
   <main id="app" class="app" aria-label="Simple communicator">
     <section class="output-panel" aria-label="Message output">
       <div class="output-header">
-        <span>Message</span>
+        <span class="output-title">Message</span>
         <div class="speech-controls">
-          <label class="instant-toggle">
+          <label class="top-toggle">
+            <input id="fixedTextToggle" type="checkbox">
+            <span class="toggle-mark" aria-hidden="true"></span>
+            Fixed
+          </label>
+          <label class="top-toggle">
             <input id="instantToggle" type="checkbox">
             <span class="toggle-mark" aria-hidden="true"></span>
             Instant
@@ -546,6 +572,7 @@
     const clearButton = document.getElementById("clearButton");
     const returnButton = document.getElementById("returnButton");
     const speakButton = document.getElementById("speakButton");
+    const fixedTextToggle = document.getElementById("fixedTextToggle");
     const instantToggle = document.getElementById("instantToggle");
     const modeButtons = Array.from(document.querySelectorAll(".mode-button"));
 
@@ -670,6 +697,10 @@
 
     speakButton.addEventListener("click", () => {
       speakText(message.trim());
+    });
+
+    fixedTextToggle.addEventListener("change", () => {
+      app.classList.toggle("fixed-text", fixedTextToggle.checked);
     });
 
     modeButtons.forEach((button) => {
